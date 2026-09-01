@@ -1,0 +1,36 @@
+# Saffron-v1 target: ~100M-parameter English model.
+# Curriculum: simple -> complex. Full 1B-token run is GPU-scale; on a laptop we
+# first SMOKE, then estimate wall-clock before committing to the full run.
+vocab_size: 32000
+block_size: 512
+n_layer: 12
+n_embd: 768
+n_head: 12
+n_kv_head: 4
+dropout: 0.0
+rope_base: 10000.0
+bias: false
+
+curriculum:
+  - {key: tinystories, path: roneneldan/TinyStories, name: null, text: text, tokens: 300000000}
+  - {key: wikitext,    path: wikitext, name: wikitext-103-raw-v1, text: text, tokens: 200000000}
+  - {key: openwebtext, path: openwebtext, name: null, text: text, tokens: 500000000}
+token_budget: 1000000000       # 1B tokens (full English curriculum)
+val_fraction: 0.001
+tokenizer_dir: tokenizer
+tokenizer_train_chars: 200000000
+
+batch_size: 12
+grad_accum: 8                  # effective batch = 96
+max_iters: 20000               # ~ 1B tokens at 12*8*512 tokens/iter
+warmup_iters: 1000
+lr: 0.0006
+min_lr: 0.00006
+weight_decay: 0.1
+grad_clip: 1.0
+eval_interval: 1000
+eval_iters: 200
+
+data_dir: data
+out_dir: results
+seed: 1337

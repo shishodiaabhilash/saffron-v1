@@ -1,0 +1,15 @@
+# Data & artifacts (never committed / synced)
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+data/
+*.bin
+results/**/ckpt*.pt
+results/**/*.pt
+out/
+wandb/
+.DS_Store
+.ipynb_checkpoints/
+tokenizer/*.json
+tokenizer/*.txt

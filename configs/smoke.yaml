@@ -1,0 +1,34 @@
+# Saffron smoke config — validates the whole pipeline fast (tiny everything).
+# Trains a tiny tokenizer + tiny model on a small TinyStories slice.
+vocab_size: 4000
+block_size: 128
+n_layer: 4
+n_embd: 256
+n_head: 4
+n_kv_head: 2
+dropout: 0.0
+rope_base: 10000.0
+bias: false
+
+# curriculum (simple -> complex). Smoke uses just TinyStories.
+curriculum:
+  - {key: tinystories, path: roneneldan/TinyStories, name: null, text: text, tokens: 3000000}
+token_budget: 3000000
+val_fraction: 0.02
+tokenizer_dir: tokenizer
+tokenizer_train_chars: 5000000
+
+batch_size: 16
+grad_accum: 1
+max_iters: 200
+warmup_iters: 20
+lr: 0.0006
+min_lr: 0.00006
+weight_decay: 0.1
+grad_clip: 1.0
+eval_interval: 50
+eval_iters: 20
+
+data_dir: data
+out_dir: results
+seed: 1337
