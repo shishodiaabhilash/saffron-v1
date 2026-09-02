@@ -3,7 +3,7 @@
 __pycache__/
 *.pyc
 *.pyo
-data/
+/data/
 *.bin
 results/**/ckpt*.pt
 results/**/*.pt

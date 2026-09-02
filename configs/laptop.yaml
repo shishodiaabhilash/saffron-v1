@@ -12,17 +12,19 @@ rope_base: 10000.0
 bias: false
 
 curriculum:
-  - {key: tinystories, path: roneneldan/TinyStories, name: null, text: text, tokens: 300000000}
-  - {key: wikitext,    path: wikitext, name: wikitext-103-raw-v1, text: text, tokens: 200000000}
-  - {key: openwebtext, path: openwebtext, name: null, text: text, tokens: 500000000}
-token_budget: 1000000000       # 1B tokens (full English curriculum)
+  # simple -> complex. All sources are streamed and token-capped (nothing
+  # downloads in full). FineWeb-Edu is the high-quality bulk.
+  - {key: tinystories, path: roneneldan/TinyStories,       name: null,           text: text, tokens: 150000000}
+  - {key: wikipedia,   path: wikimedia/wikipedia,          name: 20231101.en,    text: text, tokens: 350000000}
+  - {key: fineweb_edu, path: HuggingFaceFW/fineweb-edu,    name: sample-10BT,    text: text, tokens: 1500000000}
+token_budget: 2000000000       # ~2B tokens (~Chinchilla-optimal for 100M params)
 val_fraction: 0.001
 tokenizer_dir: tokenizer
 tokenizer_train_chars: 200000000
 
 batch_size: 12
 grad_accum: 8                  # effective batch = 96
-max_iters: 20000               # ~ 1B tokens at 12*8*512 tokens/iter
+max_iters: 40000               # ~2B tokens at 12*8*512 tokens/iter
 warmup_iters: 1000
 lr: 0.0006
 min_lr: 0.00006
