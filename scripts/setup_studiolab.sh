@@ -19,7 +19,7 @@ source activate "${ENV}"
 python -m pip install -U pip
 # CUDA 12.1 PyTorch build for the Studio Lab T4.
 python -m pip install torch --index-url https://download.pytorch.org/whl/cu121
-python -m pip install numpy tokenizers datasets pyyaml tqdm
+python -m pip install numpy tokenizers datasets pyyaml tqdm huggingface_hub
 
 python - <<'PY'
 import torch

@@ -4,3 +4,4 @@ tokenizers
 datasets
 pyyaml
 tqdm
+huggingface_hub
