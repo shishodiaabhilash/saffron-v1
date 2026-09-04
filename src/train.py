@@ -60,18 +60,20 @@ def estimate_loss(model, data, cfg, device, autocast):
     return float(np.mean(losses))
 
 
-def make_autocast(use_amp):
-    # fp16 autocast on CUDA (e.g. a T4); a no-op on MPS / CPU.
+def make_autocast(use_amp, dtype):
+    # Mixed-precision autocast on CUDA; a no-op on MPS / CPU.
+    # dtype = float16 (T4) or bfloat16 (A10G / A100 / L4).
     if use_amp:
-        return lambda: torch.autocast(device_type="cuda", dtype=torch.float16)
+        return lambda: torch.autocast(device_type="cuda", dtype=dtype)
     return nullcontext
 
 
-def make_scaler(use_amp):
+def make_scaler(enabled):
+    # Only fp16 needs loss scaling; bf16 does not.
     try:
-        return torch.amp.GradScaler("cuda", enabled=use_amp)
+        return torch.amp.GradScaler("cuda", enabled=enabled)
     except (AttributeError, TypeError):
-        return torch.cuda.amp.GradScaler(enabled=use_amp)
+        return torch.cuda.amp.GradScaler(enabled=enabled)
 
 
 def main():
@@ -86,9 +88,13 @@ def main():
     torch.manual_seed(cfg["seed"])
     device = pick_device(args.device)
     use_amp = (device == "cuda") and bool(cfg.get("amp", True))
-    autocast = make_autocast(use_amp)
-    scaler = make_scaler(use_amp)
-    print(f"device={device} amp={use_amp}")
+    amp_dtype = {"float16": torch.float16, "bfloat16": torch.bfloat16}[
+        cfg.get("amp_dtype", "float16")]
+    use_scaler = use_amp and amp_dtype == torch.float16  # bf16 needs no loss scaling
+    autocast = make_autocast(use_amp, amp_dtype)
+    scaler = make_scaler(use_scaler)
+    print(f"device={device} amp={use_amp} "
+          f"dtype={str(amp_dtype).split('.')[-1] if use_amp else 'fp32'}")
 
     train_data = np.memmap(os.path.join(cfg["data_dir"], "train.bin"), dtype=np.uint16, mode="r")
     val_data = np.memmap(os.path.join(cfg["data_dir"], "val.bin"), dtype=np.uint16, mode="r")
@@ -116,7 +122,7 @@ def main():
         ck = torch.load(ckpt_path, map_location=device)
         model.load_state_dict(ck["model"])
         opt.load_state_dict(ck["optimizer"])
-        if ck.get("scaler"):
+        if ck.get("scaler") and use_scaler:
             scaler.load_state_dict(ck["scaler"])
         start_iter = int(ck["iter"]) + 1
         best = float(ck.get("best", best))
@@ -125,7 +131,7 @@ def main():
     def save_ckpt(it):
         torch.save(
             {"model": model.state_dict(), "optimizer": opt.state_dict(),
-             "scaler": scaler.state_dict() if use_amp else None,
+             "scaler": scaler.state_dict() if use_scaler else None,
              "config": mc.__dict__, "iter": it, "best": best},
             ckpt_path,
         )

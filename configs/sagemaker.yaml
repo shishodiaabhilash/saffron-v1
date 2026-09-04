@@ -1,0 +1,40 @@
+# Saffron-v1 on paid AWS SageMaker (recommended: ml.g5.xlarge, 1x A10G 24GB).
+# Uses bf16 (A10G/A100/L4) + checkpoint/resume. No 4h session cap on paid
+# instances, so this targets a fuller ~1B-token run; stop/resume any time.
+vocab_size: 32000
+block_size: 512
+n_layer: 12
+n_embd: 768
+n_head: 12
+n_kv_head: 4
+dropout: 0.0
+rope_base: 10000.0
+bias: false
+
+curriculum:
+  # simple -> complex; streamed + token-capped. ~1B tokens total.
+  - {key: tinystories, path: roneneldan/TinyStories,    name: null,        text: text, tokens: 150000000}
+  - {key: wikipedia,   path: wikimedia/wikipedia,       name: 20231101.en, text: text, tokens: 350000000}
+  - {key: fineweb_edu, path: HuggingFaceFW/fineweb-edu, name: sample-10BT, text: text, tokens: 1500000000}
+token_budget: 1000000000       # ~1B tokens
+val_fraction: 0.001
+tokenizer_dir: tokenizer
+tokenizer_train_chars: 100000000
+
+batch_size: 32
+grad_accum: 3                  # effective batch = 96 (32*3); A10G 24GB fits this at bf16
+max_iters: 20000               # ~1B tokens at 32*3*512 tokens/iter
+warmup_iters: 1000
+lr: 0.0006
+min_lr: 0.00006
+weight_decay: 0.1
+grad_clip: 1.0
+amp: true
+amp_dtype: bfloat16            # A10G/A100/L4. Use float16 on a T4 (ml.g4dn).
+eval_interval: 500
+ckpt_interval: 500
+eval_iters: 200
+
+data_dir: data
+out_dir: results
+seed: 1337

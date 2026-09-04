@@ -10,9 +10,12 @@
 #        bash scripts/run_studiolab.sh sample
 #   4) Push weights + tokenizer to the Hugging Face Hub (after `huggingface-cli login`):
 #        bash scripts/run_studiolab.sh push
+#
+# On PAID SageMaker (e.g. ml.g5.xlarge / A10G), use the bf16 config:
+#        CFG=configs/sagemaker.yaml bash scripts/run_studiolab.sh train
 set -e
 cd "$(dirname "$0")/.."
-CFG=configs/studiolab.yaml
+CFG="${CFG:-configs/studiolab.yaml}"
 STEP="${1:-train}"
 
 case "$STEP" in
