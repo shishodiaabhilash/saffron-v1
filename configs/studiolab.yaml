@@ -1,0 +1,40 @@
+# Saffron-v1 on SageMaker Studio Lab (free T4 GPU, ~4h sessions).
+# Trains the REAL ~100M model with fp16 AMP + checkpoint/resume so it can
+# span multiple 4h sessions. This first run is a ~400M-token "proof-of-life"
+# (label results Preliminary). Bump token_budget + max_iters for a full run.
+vocab_size: 32000
+block_size: 512
+n_layer: 12
+n_embd: 768
+n_head: 12
+n_kv_head: 4
+dropout: 0.0
+rope_base: 10000.0
+bias: false
+
+curriculum:
+  # simple -> complex; all streamed + token-capped. ~400M tokens total.
+  - {key: tinystories, path: roneneldan/TinyStories,    name: null,        text: text, tokens: 100000000}
+  - {key: wikipedia,   path: wikimedia/wikipedia,       name: 20231101.en, text: text, tokens: 100000000}
+  - {key: fineweb_edu, path: HuggingFaceFW/fineweb-edu, name: sample-10BT, text: text, tokens: 200000000}
+token_budget: 400000000        # ~400M tokens (proof-of-life)
+val_fraction: 0.002
+tokenizer_dir: tokenizer
+tokenizer_train_chars: 60000000
+
+batch_size: 16
+grad_accum: 6                  # effective batch = 96 (16*6)
+max_iters: 8000                # ~400M tokens at 16*6*512 tokens/iter
+warmup_iters: 400
+lr: 0.0006
+min_lr: 0.00006
+weight_decay: 0.1
+grad_clip: 1.0
+amp: true                      # fp16 mixed precision (CUDA only)
+eval_interval: 250
+ckpt_interval: 250             # resume granularity — small so timeouts cost little
+eval_iters: 100
+
+data_dir: data
+out_dir: results
+seed: 1337
