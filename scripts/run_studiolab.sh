@@ -22,7 +22,7 @@ case "$STEP" in
   prepare) python -m src.data.prepare --config "$CFG" ;;
   train)   python -m src.train        --config "$CFG" ;;
   sample)  python -m src.sample        --config "$CFG" --prompt "${2:-Once upon a time}" ;;
-  push)    python -m src.push_hf       --config "$CFG" --repo "${2:-Abhilash0707/saffron-v1}" ;;
+  push)    python -m src.push_hf       --config "$CFG" --repo "${2:-Abhilash-AI-Lab/saffron-v1}" ;;
   all)
     python -m src.data.prepare --config "$CFG"
     python -m src.train        --config "$CFG"
