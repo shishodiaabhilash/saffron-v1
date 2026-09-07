@@ -94,10 +94,73 @@ benchmark claims, English only. Outputs may be factually wrong.
 """
 
 
+def build_chat_card(summary, repo, base_repo):
+    val = summary.get("best_val_loss")
+    ppl = f"{math.exp(val):.2f}" if isinstance(val, (int, float)) else "n/a"
+    return f"""---
+license: apache-2.0
+language: en
+library_name: pytorch
+tags:
+- saffron
+- small-language-model
+- instruction-tuning
+- experimental
+---
+
+# Saffron-v1-chat (Experimental)
+
+Instruction-tuned version of [{base_repo}](https://huggingface.co/{base_repo}) \u2014
+a ~100M-parameter English model from the **Abhilash AI Research Lab**, fine-tuned
+to follow simple instructions.
+
+> **Status: Experimental.** Lightly instruction-tuned at ~100M parameters. It
+> follows the chat format but has little world knowledge and **will hallucinate**
+> (including about its own identity). Not production quality, not safety-tuned,
+> English only.
+
+## Chat template
+
+```
+<|user|>
+{{your message}}
+<|assistant|>
+{{reply}}<|endoftext|>
+```
+
+## Training
+
+- Base model: {base_repo} (~100M, custom architecture + byte-level BPE)
+- SFT data: Databricks Dolly-15k + Alpaca, assistant-response-only loss
+- Best validation loss: {val} (perplexity {ppl})
+
+## Usage
+
+Raw PyTorch checkpoint. Use the code at
+https://github.com/shishodiaabhilash/saffron-v1 :
+
+```bash
+python -m src.sample --config configs/sft.yaml --hf-repo {repo} --prompt "Hello"
+# then chat locally:
+python -m src.chat   --config configs/sft.yaml --ckpt results/saffron.pt
+```
+
+## Limitations
+
+Preliminary research artifact. Short, often-inaccurate answers; no factual
+grounding. Do not rely on outputs.
+"""
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
-    ap.add_argument("--repo", default="Abhilash-AI-Lab/saffron-v1")
+    ap.add_argument("--repo", default=None)
+    ap.add_argument("--weights", default=None, help="checkpoint file to upload")
+    ap.add_argument("--chat", action="store_true",
+                    help="publish the SFT/chat model (defaults: sft.pt -> saffron-v1-chat)")
+    ap.add_argument("--base-repo", default="Abhilash-AI-Lab/saffron-v1", dest="base_repo",
+                    help="base model repo referenced by the chat model card")
     ap.add_argument("--private", action="store_true",
                     help="create the HF repo as private (default is public)")
     args = ap.parse_args()
@@ -105,33 +168,46 @@ def main():
 
     out_dir = cfg["out_dir"]
     tok_dir = cfg["tokenizer_dir"]
-    weights = os.path.join(out_dir, "saffron.pt")
+    if args.chat:
+        repo = args.repo or "Abhilash-AI-Lab/saffron-v1-chat"
+        weights = args.weights or os.path.join(out_dir, "sft.pt")
+    else:
+        repo = args.repo or "Abhilash-AI-Lab/saffron-v1"
+        weights = args.weights or os.path.join(out_dir, "saffron.pt")
     if not os.path.exists(weights):
         raise SystemExit(f"no weights at {weights} — train first")
 
+    # Chat val-loss comes from the SFT checkpoint; base metrics from train_summary.
     summary = {}
     spath = os.path.join(out_dir, "train_summary.json")
-    if os.path.exists(spath):
+    if args.chat:
+        import torch
+        vl = torch.load(weights, map_location="cpu").get("val_loss")
+        if vl is not None:
+            summary["best_val_loss"] = round(float(vl), 4)
+    elif os.path.exists(spath):
         summary = json.load(open(spath))
 
-    create_repo(args.repo, repo_type="model", exist_ok=True, private=args.private)
+    create_repo(repo, repo_type="model", exist_ok=True, private=args.private)
     api = HfApi()
 
     uploads = [
         (weights, "saffron.pt"),
         (os.path.join(tok_dir, "vocab.json"), "tokenizer/vocab.json"),
         (os.path.join(tok_dir, "merges.txt"), "tokenizer/merges.txt"),
-        (spath, "train_summary.json"),
     ]
+    if not args.chat and os.path.exists(spath):
+        uploads.append((spath, "train_summary.json"))
     for src, dest in uploads:
         if os.path.exists(src):
             print(f"uploading {src} -> {dest}")
-            api.upload_file(path_or_fileobj=src, path_in_repo=dest, repo_id=args.repo)
+            api.upload_file(path_or_fileobj=src, path_in_repo=dest, repo_id=repo)
 
-    card = build_card(cfg, summary, args.repo).encode("utf-8")
-    api.upload_file(path_or_fileobj=card, path_in_repo="README.md", repo_id=args.repo)
+    card = (build_chat_card(summary, repo, args.base_repo) if args.chat
+            else build_card(cfg, summary, repo)).encode("utf-8")
+    api.upload_file(path_or_fileobj=card, path_in_repo="README.md", repo_id=repo)
 
-    print(f"done -> https://huggingface.co/{args.repo}")
+    print(f"done -> https://huggingface.co/{repo}")
 
 
 if __name__ == "__main__":
