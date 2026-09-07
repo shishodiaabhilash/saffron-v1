@@ -3,7 +3,7 @@
 Auth once (in a terminal), then push:
 
     huggingface-cli login                                   # paste a WRITE token
-    python -m src.push_hf --config configs/studiolab.yaml   # -> Abhilash0707/saffron-v1
+    python -m src.push_hf --config configs/sagemaker.yaml    # -> Abhilash-AI-Lab/saffron-v1
 
 Weights (saffron.pt) are a raw PyTorch checkpoint, not a `transformers` model,
 so we upload them as plain files alongside the tokenizer and an honest model card.
@@ -97,7 +97,7 @@ benchmark claims, English only. Outputs may be factually wrong.
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
-    ap.add_argument("--repo", default="Abhilash0707/saffron-v1")
+    ap.add_argument("--repo", default="Abhilash-AI-Lab/saffron-v1")
     ap.add_argument("--private", action="store_true",
                     help="create the HF repo as private (default is public)")
     args = ap.parse_args()
